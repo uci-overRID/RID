@@ -3,7 +3,7 @@
  */
 
 #pragma once
-#define BOARD_ESP32S3_DEV
+#define BOARD_ESP32C3_DEV
 
 #ifdef BOARD_ESP32S3_DEV
 #define BOARD_ID 1
