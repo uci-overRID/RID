@@ -266,7 +266,8 @@ void setup() {
   delay(100);
 
   Serial.begin(57600);
-  Serial1.begin(57600, SERIAL_8N1, 17, 18);
+//  Serial1.begin(57600, SERIAL_8N1, 17, 18);
+  Serial1.begin(57600, SERIAL_8N1, 2,3);
 
   nvs_flash_init();
   tcpip_adapter_init();
