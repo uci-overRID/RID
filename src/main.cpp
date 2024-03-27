@@ -133,7 +133,7 @@ static const char        *title = "RID Scanner", *build_date = __DATE__,
                          *blank_latlong = " ---.------";
 
 static MAVLinkSerial mavlink1{Serial1, MAVLINK_COMM_0};
-static MAVLinkSerial mavlink2{Serial, MAVLINK_COMM_1};
+//static MAVLinkSerial mavlink2{Serial, MAVLINK_COMM_1};
 #include <SPI.h>//xyz xxx ???
 
 #if BLE_SCAN
@@ -190,7 +190,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           uavs[UAV_i].rssi      = device.getRSSI();
           uavs[UAV_i].flag      = 1;
           mavlink1.schedule_send_uav(UAV_i);
-          mavlink2.schedule_send_uav(UAV_i);
+          //mavlink2.schedule_send_uav(UAV_i);
           // Serial.println("Setting flag 1");
 
           memcpy(uavs[UAV_i].mac,mac,6);
@@ -206,6 +206,12 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           case 0x10: // location
           
             decodeLocationMessage(&odid_location,(ODID_Location_encoded *) odid);
+            // print lat, lon xxx
+            Serial.println("Lat=");
+
+            Serial.println(odid_location.Latitude);
+
+
             mavlink_open_drone_id_location_t location_mav;
             m2o_location2Mavlink(&uav_location[UAV_i], &odid_location);
             break;
@@ -328,7 +334,7 @@ void setup() {
 #endif
 
   mavlink1.init();
-  mavlink2.init();
+  //mavlink2.init();
 
   return;
 }
@@ -353,9 +359,9 @@ void loop() {
   msecs = millis();
 
   mavlink1.update();
-  mavlink2.update();
+  //mavlink2.update();
   mavlink1.update_send(uav_basic_id,uav_system,uav_location);
-  mavlink2.update_send(uav_basic_id,uav_system,uav_location);
+  //mavlink2.update_send(uav_basic_id,uav_system,uav_location);
 
 #if BLE_SCAN
 
@@ -384,14 +390,21 @@ void loop() {
       uavs[i].last_seen = 0;
       uavs[i].mac[0]    = 0;
     }
+    //print_json(i,secs,(id_data *) &uavs[i]);
+    
     // Serial.printf("Flag: %d\n", uavs[i].flag);
+    //Serial.println("aaa Hello world");
     if (uavs[i].flag) {
+      //print_json(i,secs,(id_data *) &uavs[i]);
+      //Serial.println(uav_location[i].latitude);
+      Serial.println("Hello world");
+
       // uavs_mutex.lock();
       id_data UAV = uavs[i];
       // mavlink1.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
       // mavlink2.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
       mavlink1.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
-      mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
+     //mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
       // uavs_mutex.unlock();
       // mavlink1.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
       // mavlink2.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
