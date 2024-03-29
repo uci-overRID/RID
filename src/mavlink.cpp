@@ -287,7 +287,7 @@ void MAVLinkSerial::send_uav(mavlink_open_drone_id_basic_id_t basic_id,mavlink_o
 }
 
 void MAVLinkSerial::schedule_send_uav(int i) {
-  Serial.printf("Send scheduled %i\n",i);
+  // Serial.printf("Send scheduled %i\n",i);
   sends[i] = true;
 }
 

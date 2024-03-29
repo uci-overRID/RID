@@ -92,6 +92,17 @@ struct id_data {int       flag;
                 uint16_t  heading;
                 uint16_t  hor_vel;
                 int16_t   ver_vel;
+                
+                // just keep the odid data in native format
+                ODID_BasicID_data m_ODID_BasicID_data;
+                ODID_Location_data m_ODID_Location_data;
+                ODID_Auth_data m_ODID_Auth_data;
+                ODID_SelfID_data m_ODID_SelfID_data;
+                ODID_System_data m_ODID_System_data;
+                ODID_OperatorID_data m_ODID_OperatorID_data;
+                ODID_MessagePack_data m_ODID_MessagePack_data;
+
+
 };
 
 #if SD_LOGGER
@@ -107,7 +118,7 @@ static void               print_json(int,int,struct id_data *);
 static void               write_log(uint32_t,struct id_data *,struct id_log *);
 static esp_err_t          event_handler(void *,system_event_t *);
 static void               callback(void *,wifi_promiscuous_pkt_type_t);
-static int next_uav(uint8_t *);
+static int                next_uav(uint8_t *);
 static void               parse_odid(struct id_data *,ODID_UAS_Data *);
                         
 
@@ -155,7 +166,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       ODID_Location_data    odid_location;
       ODID_System_data      odid_system;
       ODID_OperatorID_data  odid_operator;
-
+      Serial.printf("BLEAdvertisedDeviceCallbacks called at millis= %u \n",millis());
       text[0] = i = k = 0;
       
       //
@@ -198,18 +209,25 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           switch (odid[0] & 0xf0) {
 
           case 0x00: // basic
+            Serial.printf("BLEAdvertisedDeviceCallbacks case = basic \n");
 
-            decodeBasicIDMessage(&odid_basic,(ODID_BasicID_encoded *) odid);
-            m2o_basicId2Mavlink(&uav_basic_id[UAV_i],&odid_basic);
+
+            // want to take the data and put it into uavs[UAV_i].m_ODID_BasicID_data
+            // odid is the payload
+            // int decodeBasicIDMessage(ODID_BasicID_data *outData, ODID_BasicID_encoded *inEncoded)
+            decodeBasicIDMessage(&uavs[UAV_i].m_ODID_BasicID_data,(ODID_BasicID_encoded *) odid); // new UCI RID, fills uavs[UAV_i].m_ODID_BasicID_data with the packet
+            decodeBasicIDMessage(&odid_basic,(ODID_BasicID_encoded *) odid); // old RID, fills odid_basic (which is a local variable) with the packet
+            m2o_basicId2Mavlink(&uav_basic_id[UAV_i],&odid_basic); // UCI RID, fill uav_basic_id[UAV_i] with the packet from previous line
             break;
 
           case 0x10: // location
           
+            Serial.printf("BLEAdvertisedDeviceCallbacks case = location \n");
             decodeLocationMessage(&odid_location,(ODID_Location_encoded *) odid);
             // print lat, lon xxx
-            Serial.println("Lat=");
+            //Serial.println("Lat=");
 
-            Serial.println(odid_location.Latitude);
+            //Serial.println(odid_location.Latitude);
 
 
             mavlink_open_drone_id_location_t location_mav;
@@ -218,6 +236,8 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
           case 0x40: // system
 
+            Serial.printf("BLEAdvertisedDeviceCallbacks case = system \n");
+
             decodeSystemMessage(&odid_system,(ODID_System_encoded *) odid);
             mavlink_open_drone_id_system_t system_mav;
             m2o_system2Mavlink(&uav_system[UAV_i], &odid_system);
@@ -225,6 +245,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
           case 0x50: // operator
 
+            Serial.printf("BLEAdvertisedDeviceCallbacks case = operator \n");
             decodeOperatorIDMessage(&odid_operator,(ODID_OperatorID_encoded *) odid);
             strncpy((char *) UAV->op_id,(char *) odid_operator.OperatorId,ODID_ID_SIZE);
             break;
@@ -355,19 +376,23 @@ void loop() {
 
   //
   static uint64_t last_send = 0;
-  
   msecs = millis();
+  Serial.printf("A loop called at %u \n",millis());
 
   mavlink1.update();
   //mavlink2.update();
   mavlink1.update_send(uav_basic_id,uav_system,uav_location);
   //mavlink2.update_send(uav_basic_id,uav_system,uav_location);
 
+  Serial.printf("A1 loop called at %u \n",millis());
+// this next segment waits in the loop until it receives a bluetooth packet...
 #if BLE_SCAN
 
   uint32_t last_ble_scan = 0;
 
   if ((msecs - last_ble_scan) > 2000) {
+
+    Serial.printf("#if BLE_SCAN  called at %u \n",msecs);
 
     last_ble_scan = msecs;
   
@@ -377,6 +402,7 @@ void loop() {
   }
   
 #endif
+  Serial.printf("B loop called at %u \n",millis());
 
   msecs = millis();
   secs  = msecs / 1000;
@@ -385,6 +411,9 @@ void loop() {
   Serial.println("Running loop");
   uavs_mutex.lock();
   for (i = 0; i < MAX_UAVS; ++i) {
+    //Serial.printf("C for (i = 0; i < MAX_UAVS; ++i) %u for i = %i \n",millis(),i);
+
+
     if ((uavs[i].last_seen)&&
         ((msecs - uavs[i].last_seen) > 300000L)) {
       uavs[i].last_seen = 0;
@@ -394,7 +423,11 @@ void loop() {
     
     // Serial.printf("Flag: %d\n", uavs[i].flag);
     //Serial.println("aaa Hello world");
+    //Serial.printf("D for (i = 0; i < MAX_UAVS; ++i) %u for i = %i \n",millis(),i);
+
     if (uavs[i].flag) {
+      Serial.printf("D1 loop called at %u \n",millis());
+
       //print_json(i,secs,(id_data *) &uavs[i]);
       //Serial.println(uav_location[i].latitude);
       Serial.println("Hello world");
@@ -416,6 +449,8 @@ void loop() {
       last_json = msecs;
     }
   }
+  Serial.printf("E loop called at %u \n",millis());
+
   uavs_mutex.unlock();
 
 
