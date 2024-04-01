@@ -488,6 +488,15 @@ void loop() {
   msecs = millis();
   //Serial.printf("A loop called at %u \n",millis());
 
+  // print macs here
+  for (i = 0; i < MAX_UAVS; ++i) { 
+    //Serial.printf("hello world");
+    Serial.printf("uavs[%i] mac = %02x:%02x:%02x:%02x:%02x:%02x \n",i,uavs[i].mac[0],uavs[i].mac[1],uavs[i].mac[2],uavs[i].mac[3],uavs[i].mac[4],uavs[i].mac[5]);
+
+
+
+  }// loop through UAVs in array  
+
   mavlink1.update();
   //mavlink2.update();
   mavlink1.update_send(uav_basic_id,uav_system,uav_location); // this sends 3 packets over mavlink (id, system,location) for every UAV marked as 1 in send[i]
@@ -787,6 +796,7 @@ void callback(void* buffer,wifi_promiscuous_pkt_type_t type) {
  */
 int next_uav(uint8_t *mac) {
 
+  int             i_to_return;
   int             i;
   struct id_data *UAV = NULL;
 
@@ -795,6 +805,7 @@ int next_uav(uint8_t *mac) {
     if (memcmp((void *) uavs[i].mac,mac,6) == 0) {
 
       UAV = (struct id_data *) &uavs[i];
+      i_to_return= i;
     }
   }
 
@@ -805,6 +816,7 @@ int next_uav(uint8_t *mac) {
       if (!uavs[i].mac[0]) {
 
         UAV = (struct id_data *) &uavs[i];
+        i_to_return= i;
         break;
       }
     }
@@ -812,10 +824,12 @@ int next_uav(uint8_t *mac) {
 
   if (!UAV) {
 
-     UAV = (struct id_data *) &uavs[MAX_UAVS - 1];
+    UAV = (struct id_data *) &uavs[MAX_UAVS - 1];
+    i_to_return= MAX_UAVS-1;
+
   }
 
-  return i;
+  return i_to_return;
 }
 
 /*
