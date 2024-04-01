@@ -173,7 +173,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       ODID_OperatorID_data  odid_operator; // local copy of the ODID packet data
       //Serial.printf("BLEAdvertisedDeviceCallbacks called at millis= %u \n",millis());
       text[0] = i = k = 0;
-      bool m_log_each_packet_to_console=true;
+      bool m_log_each_packet_to_console=false;
       bool m_log_each_discovereddevice_to_console=false;
       //
       
@@ -225,6 +225,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           uavs[UAV_i].last_seen = millis();
           uavs[UAV_i].rssi      = device.getRSSI();
           uavs[UAV_i].flag      = 1;
+          Serial.printf("Setting flag 1 for UAV_i=%i \n",UAV_i);
           mavlink1.schedule_send_uav(UAV_i);
           memcpy(uavs[UAV_i].mac,mac,6);
           //mavlink2.schedule_send_uav(UAV_i);
@@ -401,8 +402,8 @@ void setup() {
   delay(100);
 
   Serial.begin(57600);
-//  Serial1.begin(57600, SERIAL_8N1, 17, 18);
-  Serial1.begin(57600, SERIAL_8N1, 2,3);
+//  Serial1.begin(57600, SERIAL_8N1, 17, 18); // for esp32-s3
+  Serial1.begin(57600, SERIAL_8N1, 2,3); // for esp32-c3
 
   nvs_flash_init();
   tcpip_adapter_init();
@@ -431,16 +432,12 @@ void setup() {
   service_uuid = BLEUUID("0000fffa-0000-1000-8000-00805f9b34fb");
   BLE_scan     = BLEDevice::getScan();
 
-  BLE_scan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(),true);
+  BLE_scan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(),true); // true needed to get duplicates i.e. packets from same device more than once per scan
   BLE_scan->setActiveScan(true); 
   BLE_scan->setInterval(100);
   BLE_scan->setWindow(99);  
 
 
-  //BLE_scan->m_scan_params.scan_duplicate=BLE_SCAN_DUPLICATE_DISABLE; // can't access directly, it's private
-   esp_ble_ext_scan_params_t *RID_params;
-   RID_params->scan_duplicate=BLE_SCAN_DUPLICATE_DISABLE;
-   BLE_scan->setExtScanParams(RID_params);
 #endif
 
 #if SD_LOGGER
@@ -474,9 +471,7 @@ void setup() {
   return;
 }
 
-/*
- *
- */
+
 void loop() {
 
   int             i, j, k, msl, agl;
@@ -495,12 +490,14 @@ void loop() {
 
   mavlink1.update();
   //mavlink2.update();
-  mavlink1.update_send(uav_basic_id,uav_system,uav_location);
+  mavlink1.update_send(uav_basic_id,uav_system,uav_location); // this sends 3 packets over mavlink (id, system,location) for every UAV marked as 1 in send[i]
+  // xxx I would prefer the "flag" variable means send to mavlink, will change...
+  // also I don't like using mavlink.cpp as our own version, just use stock mavlink.cpp and create a new file if you want custom code (PJB 3/30/2024)
   //mavlink2.update_send(uav_basic_id,uav_system,uav_location);
 
   //Serial.printf("A1 loop called at %u \n",millis());
 // this next segment waits in the loop until it receives a bluetooth packet...
-#if BLE_SCAN
+#if BLE_SCAN // start the scan, will callback for every received packet
 
   uint32_t last_ble_scan = 0;
 
@@ -509,9 +506,6 @@ void loop() {
     Serial.printf("#if BLE_SCAN  called at %u \n",msecs);
 
     last_ble_scan = msecs;
-    //esp_ble_ext_scan_params_t *RID_params;
-    //RID_params->scan_duplicate=BLE_SCAN_DUPLICATE_DISABLE;
-    //BLE_scan->setExtScanParams(RID_params);
     
     BLEScanResults foundDevices = BLE_scan->start(1,false);
 
@@ -529,11 +523,11 @@ void loop() {
 
   //Serial.println("Running loop");
   uavs_mutex.lock();
-  for (i = 0; i < MAX_UAVS; ++i) {
-    //Serial.printf("C for (i = 0; i < MAX_UAVS; ++i) %u for i = %i \n",millis(),i);
+  for (i = 0; i < MAX_UAVS; ++i) { // loop through UAVs in array
+    Serial.printf("C for (i = 0; i < MAX_UAVS; ++i) %u for i = %i ; flag = %i \n",millis(),i,uavs[i].flag);
 
 
-    if ((uavs[i].last_seen)&&
+    if ((uavs[i].last_seen)&& // delete old unheard from UAVs (300 secs 10 mins)
         ((msecs - uavs[i].last_seen) > 300000L)) {
       uavs[i].last_seen = 0;
       uavs[i].mac[0]    = 0;
@@ -544,12 +538,12 @@ void loop() {
     //Serial.println("aaa Hello world");
     //Serial.printf("D for (i = 0; i < MAX_UAVS; ++i) %u for i = %i \n",millis(),i);
 
-    if (uavs[i].flag) {
+    if (uavs[i].flag) { // process if flagged, i.ee send uav data...
       //Serial.printf("D1 loop called at %u \n",millis());
 
       //print_json(i,secs,(id_data *) &uavs[i]);
       //Serial.println(uav_location[i].latitude);
-      Serial.println("Hello world");
+      Serial.println("Hello world"); //never called for some reason....
 
       // uavs_mutex.lock();
       id_data UAV = uavs[i];
