@@ -87,6 +87,7 @@ extern "C" {
 // logging booleans:
 bool m_log_each_packet_to_console=false;
 bool m_log_each_discovereddevice_to_console=false;
+bool m_send_mavlink_to_console=true;
 
 
 
@@ -162,7 +163,7 @@ static const char        *title = "RID Scanner", *build_date = __DATE__,
                          *blank_latlong = " ---.------";
 
 static MAVLinkSerial mavlink1{Serial1, MAVLINK_COMM_0}; // will pass the received data via UART on pins to the flight controller
-static MAVLinkSerial mavlink2{Serial, MAVLINK_COMM_1}; // will pass the received data to USB/UART on the board for computer use in SITL
+static MAVLinkSerial mavlink2{Serial, MAVLINK_COMM_1}; // will pass the received data to USB/UART (console) on the board for computer use in SITL
 #include <SPI.h>//xyz xxx ???
 
 #if BLE_SCAN
@@ -253,21 +254,15 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = basic \n");
             //Serial.printf("%s", to_print_basic.c_str());
 
-            // want to take the data and put it into uavs[UAV_i].m_ODID_BasicID_data
-            // odid is the payload
-            // int decodeBasicIDMessage(ODID_BasicID_data *outData, ODID_BasicID_encoded *inEncoded) // code from 2022 fork did nothing
-            decodeBasicIDMessage(&uavs[UAV_i].m_ODID_BasicID_data,(ODID_BasicID_encoded *) odid); // new UCI RID, fills uavs[UAV_i].m_ODID_BasicID_data with the packet
-            decodeBasicIDMessage(&odid_basic,(ODID_BasicID_encoded *) odid); // old RID, fills odid_basic (which is a local variable) with the packet
-            m2o_basicId2Mavlink(&uav_basic_id[UAV_i],&odid_basic); // old UCI RID, fill uav_basic_id[UAV_i] with the packet from previous line
-
-            // why not just send direct to mavlink as soon as packet received
-            mavlink_open_drone_id_basic_id_t m_mavlink_open_drone_id_basic_id_t_tosend;
-            m2o_basicId2Mavlink(&m_mavlink_open_drone_id_basic_id_t_tosend,&odid_basic);
-            mavlink1.send_uav_basic(m_mavlink_open_drone_id_basic_id_t_tosend);
-            mavlink2.send_uav_basic(m_mavlink_open_drone_id_basic_id_t_tosend);
-      
-
-
+            // Fill uavs[UAV_i].m_ODID_Location_data with the packet
+            decodeBasicIDMessage(&uavs[UAV_i].m_ODID_BasicID_data,(ODID_BasicID_encoded *) odid); 
+            // Fill uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend with ready to send mavlink packet
+            m2o_basicId2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_basic_id_t_tosend,&uavs[UAV_i].m_ODID_BasicID_data); 
+            // send it on to mavlink
+            mavlink1.send_uav_basic(uavs[UAV_i].m_mavlink_open_drone_id_basic_id_t_tosend );
+            if(m_send_mavlink_to_console){
+              mavlink2.send_uav_basic(uavs[UAV_i].m_mavlink_open_drone_id_basic_id_t_tosend );
+            };
 
             // let's log to console uavs[UAV_i].m_ODID_BasicID_data :
             if(m_log_each_packet_to_console){
@@ -279,7 +274,6 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
             }
 
-
             break;
 
           case 0x10: // location
@@ -287,27 +281,15 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
             //Serial.printf("%s", to_print_location.c_str());
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = location \n");
 
-            // new UCI RID, fills uavs[UAV_i].m_ODID_Location_data with the packet
+            // Fill uavs[UAV_i].m_ODID_Location_data with the packet
             decodeLocationMessage(&uavs[UAV_i].m_ODID_Location_data,(ODID_Location_encoded *) odid); 
-            // new UCI RID,, fill uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend with ready to send mavlink packet
-            decodeLocationMessage(&odid_location,(ODID_Location_encoded *) odid); // old RID, fills odid_location (which is a local variable) with the packet
-            m2o_location2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend,&odid_location); 
+            // Fill uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend with ready to send mavlink packet
+            m2o_location2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend,&uavs[UAV_i].m_ODID_Location_data); 
             // send it on to mavlink
             mavlink1.send_uav_location(uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend );
-            mavlink2.send_uav_location(uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend );
-            
-
-            // decodeLocationMessage(&odid_location,(ODID_Location_encoded *) odid); // old RID, fills odid_location (which is a local variable) with the packet
-            // m2o_location2Mavlink(&uav_location[UAV_i],&odid_location); // old UCI RID, fill uav_location[UAV_i] with the packet from previous line
-
-
-            // m2o_location2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend,&odid_location); // old UCI RID, fill uav_location[UAV_i] with the packet from previous line
-
-           // why not just send direct to mavlink as soon as packet received
-            // mavlink_open_drone_id_location_t m_mavlink_open_drone_id_location_t_tosend;
-            // m2o_location2Mavlink(&m_mavlink_open_drone_id_location_t_tosend,&odid_location);
-            // xxxx mavlink1.send_uav_location(m_mavlink_open_drone_id_location_t_tosend );
-            // xxxx mavlink2.send_uav_location(uav_location[UAV_i] );
+            if(m_send_mavlink_to_console){
+              mavlink2.send_uav_location(uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend );
+            };
 
             // let's log to console uavs[UAV_i].m_ODID_Location_data :
             if(m_log_each_packet_to_console){
@@ -340,10 +322,11 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = system \n");
             //Serial.printf("%s", to_print_system.c_str());
 
+            // Fill uavs[UAV_i].m_ODID_Location_data with the packet
             decodeSystemMessage(&uavs[UAV_i].m_ODID_System_data,(ODID_System_encoded *) odid); 
-            decodeSystemMessage(&odid_system,(ODID_System_encoded *) odid); 
-            m2o_system2Mavlink(&uav_system[UAV_i],&odid_system); 
-
+            // Fill uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend with ready to send mavlink packet
+            m2o_system2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_system_t_tosend,&uavs[UAV_i].m_ODID_System_data); 
+            // not coded yet: send it on to mavlink
 
             // let's log to console uavs[UAV_i].m_ODID_System_data :
             if(m_log_each_packet_to_console){
@@ -373,6 +356,13 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = operator \n");
             //Serial.printf("%s", to_print_operator.c_str());
             decodeOperatorIDMessage(&uavs[UAV_i].m_ODID_OperatorID_data,(ODID_OperatorID_encoded *) odid); 
+
+
+            // Fill uavs[UAV_i].m_ODID_Location_data with the packet
+            decodeOperatorIDMessage(&uavs[UAV_i].m_ODID_OperatorID_data,(ODID_OperatorID_encoded *) odid); 
+            // Fill uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend with ready to send mavlink packet
+            m2o_operatorId2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_operator_id_t_tosend,&uavs[UAV_i].m_ODID_OperatorID_data); 
+            // not coded yet: send it on to mavlink
 
             // let's log to console uavs[UAV_i].m_ODID_OperatorID_data :
             if(m_log_each_packet_to_console){
