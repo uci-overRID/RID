@@ -289,6 +289,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
            // why not just send direct to mavlink as soon as packet received
             mavlink_open_drone_id_location_t m_mavlink_open_drone_id_location_t_tosend;
             m2o_location2Mavlink(&m_mavlink_open_drone_id_location_t_tosend,&odid_location);
+            mavlink1.send_uav_location(m_mavlink_open_drone_id_location_t_tosend );
             mavlink2.send_uav_location(m_mavlink_open_drone_id_location_t_tosend );
 
 
