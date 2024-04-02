@@ -18,6 +18,14 @@ public:
     void mav_printf(uint8_t severity, const char *fmt, ...);
     void send_uav(double lat, double lon, double alt, uint8_t mac[6], uint16_t heading, uint16_t hor_vel, int16_t ver_vel);
     void send_uav(mavlink_open_drone_id_basic_id_t basic_id,mavlink_open_drone_id_system_t system,mavlink_open_drone_id_location_t location);
+    void send_uav_location(mavlink_open_drone_id_location_t location);
+    void send_uav_basic(mavlink_open_drone_id_basic_id_t basic_id);
+//    void send_uav_system(mavlink_open_drone_id_system_t system);
+
+
+
+
+
     void schedule_send_uav(int i);
     mavlink_channel_t chan;
 

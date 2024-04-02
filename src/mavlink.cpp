@@ -286,6 +286,20 @@ void MAVLinkSerial::send_uav(mavlink_open_drone_id_basic_id_t basic_id,mavlink_o
   mavlink_msg_open_drone_id_location_send_struct(chan, &location);
 }
 
+
+void MAVLinkSerial::send_uav_location(mavlink_open_drone_id_location_t location) {
+  mavlink_msg_open_drone_id_location_send_struct(chan, &location);
+}
+
+
+void MAVLinkSerial::send_uav_basic(mavlink_open_drone_id_basic_id_t basic_id){
+    mavlink_msg_open_drone_id_basic_id_send_struct(chan, &basic_id);
+};
+
+
+
+
+
 void MAVLinkSerial::schedule_send_uav(int i) {
   // Serial.printf("Send scheduled %i\n",i);
   sends[i] = true;
