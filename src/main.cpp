@@ -84,6 +84,12 @@ extern "C" {
 
 #endif
 
+// logging booleans:
+bool m_log_each_packet_to_console=false;
+bool m_log_each_discovereddevice_to_console=false;
+
+
+
 //
 
 // struct contains up to date info about a specific uav
@@ -107,7 +113,14 @@ struct id_data {int       flag; // if it was seen and not processed yet accordin
                 ODID_OperatorID_data m_ODID_OperatorID_data;
                 ODID_MessagePack_data m_ODID_MessagePack_data;
 
-
+                // the odid data in mavlink ready to send format
+                mavlink_open_drone_id_basic_id_t m_mavlink_open_drone_id_basic_id_t_tosend;
+                mavlink_open_drone_id_location_t m_mavlink_open_drone_id_location_t_tosend;
+                mavlink_open_drone_id_authentication_t m_mavlink_open_drone_id_authentication_t_tosend;
+                mavlink_open_drone_id_self_id_t m_mavlink_open_drone_id_self_id_t_tosend;
+                mavlink_open_drone_id_system_t m_mavlink_open_drone_id_system_t_tosend;
+                mavlink_open_drone_id_operator_id_t m_mavlink_open_drone_id_operator_id_t_tosend;
+                mavlink_open_drone_id_message_pack_t m_mavlink_open_drone_id_message_pack_t_tosend;
 };
 
 #if SD_LOGGER
@@ -174,8 +187,6 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       //Serial.printf("BLEAdvertisedDeviceCallbacks called at millis= %u \n",millis());
 
       text[0] = i = k = 0;
-      bool m_log_each_packet_to_console=false;
-      bool m_log_each_discovereddevice_to_console=false;
       //
 
 
@@ -223,9 +234,9 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           uavs[UAV_i].rssi      = device.getRSSI();
           uavs[UAV_i].flag      = 1;
           //Serial.printf("Setting flag 1 for UAV_i=%i \n",UAV_i);
-          mavlink1.schedule_send_uav(UAV_i);
+          //mavlink1.schedule_send_uav(UAV_i); xxxx
           memcpy(uavs[UAV_i].mac,mac,6);
-          mavlink2.schedule_send_uav(UAV_i);
+          //mavlink2.schedule_send_uav(UAV_i);xxxx
 
 
           to_print=to_print_2;
@@ -276,16 +287,27 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
             //Serial.printf("%s", to_print_location.c_str());
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = location \n");
 
-            decodeLocationMessage(&uavs[UAV_i].m_ODID_Location_data,(ODID_Location_encoded *) odid); // new UCI RID, fills uavs[UAV_i].m_ODID_Location_data with the packet
+            // new UCI RID, fills uavs[UAV_i].m_ODID_Location_data with the packet
+            decodeLocationMessage(&uavs[UAV_i].m_ODID_Location_data,(ODID_Location_encoded *) odid); 
+            // new UCI RID,, fill uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend with ready to send mavlink packet
             decodeLocationMessage(&odid_location,(ODID_Location_encoded *) odid); // old RID, fills odid_location (which is a local variable) with the packet
-            m2o_location2Mavlink(&uav_location[UAV_i],&odid_location); // old UCI RID, fill uav_location[UAV_i] with the packet from previous line
+            m2o_location2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend,&odid_location); 
+            // send it on to mavlink
+            mavlink1.send_uav_location(uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend );
+            mavlink2.send_uav_location(uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend );
+            
+
+            // decodeLocationMessage(&odid_location,(ODID_Location_encoded *) odid); // old RID, fills odid_location (which is a local variable) with the packet
+            // m2o_location2Mavlink(&uav_location[UAV_i],&odid_location); // old UCI RID, fill uav_location[UAV_i] with the packet from previous line
+
+
+            // m2o_location2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend,&odid_location); // old UCI RID, fill uav_location[UAV_i] with the packet from previous line
 
            // why not just send direct to mavlink as soon as packet received
-            mavlink_open_drone_id_location_t m_mavlink_open_drone_id_location_t_tosend;
-            m2o_location2Mavlink(&m_mavlink_open_drone_id_location_t_tosend,&odid_location);
-            mavlink1.send_uav_location(m_mavlink_open_drone_id_location_t_tosend );
-            mavlink2.send_uav_location(m_mavlink_open_drone_id_location_t_tosend );
-
+            // mavlink_open_drone_id_location_t m_mavlink_open_drone_id_location_t_tosend;
+            // m2o_location2Mavlink(&m_mavlink_open_drone_id_location_t_tosend,&odid_location);
+            // xxxx mavlink1.send_uav_location(m_mavlink_open_drone_id_location_t_tosend );
+            // xxxx mavlink2.send_uav_location(uav_location[UAV_i] );
 
             // let's log to console uavs[UAV_i].m_ODID_Location_data :
             if(m_log_each_packet_to_console){
@@ -498,10 +520,10 @@ void loop() {
 
   //mavlink1.update();
   //mavlink2.update();
-  mavlink1.update_send(uav_basic_id,uav_system,uav_location); // this sends 3 packets over mavlink (id, system,location) for every UAV marked as 1 in send[i]
+  // xxxx mavlink1.update_send(uav_basic_id,uav_system,uav_location); // this sends 3 packets over mavlink (id, system,location) for every UAV marked as 1 in send[i]
   // xxx I would prefer the "flag" variable means send to mavlink, will change...
   // also I don't like using mavlink.cpp as our own version, just use stock mavlink.cpp and create a new file if you want custom code (PJB 3/30/2024)
-  mavlink2.update_send(uav_basic_id,uav_system,uav_location);
+  // xxxx mavlink2.update_send(uav_basic_id,uav_system,uav_location);
 
   //Serial.printf("A1 loop called at %u \n",millis());
 
@@ -548,8 +570,8 @@ void loop() {
       id_data UAV = uavs[i];
       //mavlink1.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
       // mavlink2.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
-      mavlink1.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
-      mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
+      // xxxx mavlink1.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
+      // xxxx mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
       // uavs_mutex.unlock();
        mavlink1.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
        mavlink2.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
