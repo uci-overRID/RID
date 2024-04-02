@@ -151,9 +151,6 @@ char             ssid[10];
 unsigned int     callback_counter = 0, french_wifi = 0, odid_wifi = 0, odid_ble = 0;
 // All four array are protected by the uavs_mutex;
 struct id_data   uavs[MAX_UAVS + 1]; // array of UAVs
-mavlink_open_drone_id_basic_id_t uav_basic_id[MAX_UAVS + 1]; // array of mavlink basic messages, will be obsolete after putting it into struct id_data
-mavlink_open_drone_id_system_t uav_system[MAX_UAVS + 1];// array of mavlink system messages, will be obsolete after putting it into struct id_data
-mavlink_open_drone_id_location_t uav_location[MAX_UAVS + 1];// array of mavlink location messages, will be obsolete after putting it into struct id_data
 
 volatile ODID_UAS_Data    UAS_data;
 
@@ -234,10 +231,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           uavs[UAV_i].last_seen = millis();
           uavs[UAV_i].rssi      = device.getRSSI();
           uavs[UAV_i].flag      = 1;
-          //Serial.printf("Setting flag 1 for UAV_i=%i \n",UAV_i);
-          //mavlink1.schedule_send_uav(UAV_i); xxxx
           memcpy(uavs[UAV_i].mac,mac,6);
-          //mavlink2.schedule_send_uav(UAV_i);xxxx
 
 
           to_print=to_print_2;
@@ -501,21 +495,12 @@ void loop() {
   //
   static uint64_t last_send = 0;
   msecs = millis();
-  //Serial.printf("A loop called at %u \n",millis());
 
   // print macs here
   //for (i = 0; i < MAX_UAVS; ++i) { 
     //Serial.printf("hello world");
   //}// loop through UAVs in array  
 
-  //mavlink1.update();
-  //mavlink2.update();
-  // xxxx mavlink1.update_send(uav_basic_id,uav_system,uav_location); // this sends 3 packets over mavlink (id, system,location) for every UAV marked as 1 in send[i]
-  // xxx I would prefer the "flag" variable means send to mavlink, will change...
-  // also I don't like using mavlink.cpp as our own version, just use stock mavlink.cpp and create a new file if you want custom code (PJB 3/30/2024)
-  // xxxx mavlink2.update_send(uav_basic_id,uav_system,uav_location);
-
-  //Serial.printf("A1 loop called at %u \n",millis());
 
 
 // this next segment waits in the loop until it receives a bluetooth packet...
@@ -556,16 +541,9 @@ void loop() {
 
     if (uavs[i].flag) { // process if flagged, i.e. send uav data...
       //print_json(i,secs,(id_data *) &uavs[i]);
-      // uavs_mutex.lock();
       id_data UAV = uavs[i];
-      //mavlink1.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
-      // mavlink2.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
-      // xxxx mavlink1.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
-      // xxxx mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
-      // uavs_mutex.unlock();
        mavlink1.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
        mavlink2.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
-
 
       uavs[i].flag = 0;
       // Serial.println("UnSetting flag 1");
