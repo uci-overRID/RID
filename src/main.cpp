@@ -226,9 +226,9 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           uavs[UAV_i].rssi      = device.getRSSI();
           uavs[UAV_i].flag      = 1;
           //Serial.printf("Setting flag 1 for UAV_i=%i \n",UAV_i);
-          //mavlink1.schedule_send_uav(UAV_i);
+          mavlink1.schedule_send_uav(UAV_i);
           memcpy(uavs[UAV_i].mac,mac,6);
-          //mavlink2.schedule_send_uav(UAV_i);
+          mavlink2.schedule_send_uav(UAV_i);
           // Serial.println("Setting flag 1");
 
 
@@ -508,10 +508,10 @@ void loop() {
 
   //mavlink1.update();
   //mavlink2.update();
-  //mavlink1.update_send(uav_basic_id,uav_system,uav_location); // this sends 3 packets over mavlink (id, system,location) for every UAV marked as 1 in send[i]
+  mavlink1.update_send(uav_basic_id,uav_system,uav_location); // this sends 3 packets over mavlink (id, system,location) for every UAV marked as 1 in send[i]
   // xxx I would prefer the "flag" variable means send to mavlink, will change...
   // also I don't like using mavlink.cpp as our own version, just use stock mavlink.cpp and create a new file if you want custom code (PJB 3/30/2024)
-  //mavlink2.update_send(uav_basic_id,uav_system,uav_location);
+  mavlink2.update_send(uav_basic_id,uav_system,uav_location);
 
   //Serial.printf("A1 loop called at %u \n",millis());
 // this next segment waits in the loop until it receives a bluetooth packet...
@@ -565,13 +565,13 @@ void loop() {
 
       // uavs_mutex.lock();
       id_data UAV = uavs[i];
-      // mavlink1.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
+      //mavlink1.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
       // mavlink2.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
-      //mavlink1.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
-     //mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
+      mavlink1.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
+     mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
       // uavs_mutex.unlock();
-      // mavlink1.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
-      // mavlink2.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
+       mavlink1.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
+       mavlink2.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
 
 
       uavs[i].flag = 0;
