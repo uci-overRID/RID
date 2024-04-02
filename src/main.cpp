@@ -149,7 +149,7 @@ static const char        *title = "RID Scanner", *build_date = __DATE__,
                          *blank_latlong = " ---.------";
 
 static MAVLinkSerial mavlink1{Serial1, MAVLINK_COMM_0}; // will pass the received data via UART on pins to the flight controller
-static MAVLinkSerial mavlink2{Serial, MAVLINK_COMM_1};
+static MAVLinkSerial mavlink2{Serial, MAVLINK_COMM_1}; // will pass the received data to USB/UART on the board for computer use in SITL
 #include <SPI.h>//xyz xxx ???
 
 #if BLE_SCAN
@@ -172,37 +172,34 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       ODID_System_data      odid_system; // local copy of the ODID packet data
       ODID_OperatorID_data  odid_operator; // local copy of the ODID packet data
       //Serial.printf("BLEAdvertisedDeviceCallbacks called at millis= %u \n",millis());
+
       text[0] = i = k = 0;
       bool m_log_each_packet_to_console=false;
       bool m_log_each_discovereddevice_to_console=false;
       //
-      
+
+
+//      BLEUUID BLE_UUID = device.getServiceUUID(); // crashes program
+
+
       if ((len = device.getPayloadLength()) > 0) {
 
         BLEAddress ble_address = device.getAddress();
         mac                    = (uint8_t *) ble_address.getNative();
 
-
-        std::string my_string;
-        my_string=ble_address.toString();
-        //String to_print="ble_address=  \n"+my_string.c_str()+"\"n";
-        //Serial.printf(to_print);
-        String to_print = "ble_address=  " + String(my_string.c_str()) ;
-        //String ble_address_string=ble_address.toString();
-        //Serial.printf(ble_address_string);
-
-//      BLEUUID BLE_UUID = device.getServiceUUID(); // crashes program
-
         payload = device.getPayload();
         odid    = &payload[6]; // seventh byte plus of payload (actual ODID packet, first six bytes to check if it is actually an odid payload or not)
         int payload_length=device.getPayloadLength();
 
-
+        std::string my_string;
+        my_string=ble_address.toString();
+        String to_print = "ble_address=  " + String(my_string.c_str()) ;
         String to_print_2 ="T="+ String(millis())+ " length = " +String(payload_length) + " ble_address=  " + String(my_string.c_str())+" RSSI = " + String(device.getRSSI()) + "\n" ;
         if(m_log_each_discovereddevice_to_console){
           Serial.printf("%s", to_print_2.c_str());
-      }
-        //printPayloadHex(payload,  len);
+        };
+
+      
 
 #if 0 // log mac address to console
         for (i = 0, k = 0; i < ESP_BD_ADDR_LEN; ++i, k += 3) {
@@ -229,7 +226,6 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           mavlink1.schedule_send_uav(UAV_i);
           memcpy(uavs[UAV_i].mac,mac,6);
           mavlink2.schedule_send_uav(UAV_i);
-          // Serial.println("Setting flag 1");
 
 
           to_print=to_print_2;
@@ -245,7 +241,6 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           case 0x00: // basic
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = basic \n");
             //Serial.printf("%s", to_print_basic.c_str());
-            //printPayloadHex(payload,  len);
 
             // want to take the data and put it into uavs[UAV_i].m_ODID_BasicID_data
             // odid is the payload
@@ -279,7 +274,6 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           case 0x10: // location
               //Serial.printf("BLEAdvertisedDeviceCallbacks case = location \n");
             //Serial.printf("%s", to_print_location.c_str());
-            //printPayloadHex(payload,  len);
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = location \n");
 
             decodeLocationMessage(&uavs[UAV_i].m_ODID_Location_data,(ODID_Location_encoded *) odid); // new UCI RID, fills uavs[UAV_i].m_ODID_Location_data with the packet
@@ -317,15 +311,12 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
             }
 
 
-            //Serial.println("Lat=");
-            //Serial.println(odid_location.Latitude);
             break;
 
           case 0x40: // system
 
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = system \n");
             //Serial.printf("%s", to_print_system.c_str());
-            //printPayloadHex(payload,  len);
 
             decodeSystemMessage(&uavs[UAV_i].m_ODID_System_data,(ODID_System_encoded *) odid); 
             decodeSystemMessage(&odid_system,(ODID_System_encoded *) odid); 
@@ -359,7 +350,6 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
             //Serial.printf("BLEAdvertisedDeviceCallbacks case = operator \n");
             //Serial.printf("%s", to_print_operator.c_str());
-            //printPayloadHex(payload,  len);
             decodeOperatorIDMessage(&uavs[UAV_i].m_ODID_OperatorID_data,(ODID_OperatorID_encoded *) odid); 
 
             // let's log to console uavs[UAV_i].m_ODID_OperatorID_data :
@@ -514,6 +504,8 @@ void loop() {
   mavlink2.update_send(uav_basic_id,uav_system,uav_location);
 
   //Serial.printf("A1 loop called at %u \n",millis());
+
+
 // this next segment waits in the loop until it receives a bluetooth packet...
 #if BLE_SCAN // start the scan, will callback for every received packet
 
@@ -533,7 +525,6 @@ void loop() {
   }
   
 #endif
-  //Serial.printf("B loop called at %u \n",millis());
 
   msecs = millis();
   secs  = msecs / 1000;
@@ -543,32 +534,22 @@ void loop() {
   uavs_mutex.lock();
   for (i = 0; i < MAX_UAVS; ++i) { // loop through UAVs in array
     //Serial.printf("C for (i = 0; i < MAX_UAVS; ++i) %u for i = %i ; flag = %i \n",millis(),i,uavs[i].flag);
-
-
     if ((uavs[i].last_seen)&& // delete old unheard from UAVs (300 secs 10 mins)
         ((msecs - uavs[i].last_seen) > 300000L)) {
       uavs[i].last_seen = 0;
       uavs[i].mac[0]    = 0;
     }
     //print_json(i,secs,(id_data *) &uavs[i]);
-    
     // Serial.printf("Flag: %d\n", uavs[i].flag);
-    //Serial.println("aaa Hello world");
-    //Serial.printf("D for (i = 0; i < MAX_UAVS; ++i) %u for i = %i \n",millis(),i);
 
-    if (uavs[i].flag) { // process if flagged, i.ee send uav data...
-      //Serial.printf("D1 loop called at %u \n",millis());
-
+    if (uavs[i].flag) { // process if flagged, i.e. send uav data...
       //print_json(i,secs,(id_data *) &uavs[i]);
-      //Serial.println(uav_location[i].latitude);
-      //Serial.println("Hello world"); //never called for some reason....
-
       // uavs_mutex.lock();
       id_data UAV = uavs[i];
       //mavlink1.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
       // mavlink2.send_uav(UAV.lat_d,UAV.long_d,UAV.altitude_msl, UAV.mac, UAV.heading, UAV.hor_vel, UAV.ver_vel);
       mavlink1.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
-     mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
+      mavlink2.send_uav(uav_basic_id[i],uav_system[i],uav_location[i]);
       // uavs_mutex.unlock();
        mavlink1.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
        mavlink2.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
@@ -580,7 +561,6 @@ void loop() {
       last_json = msecs;
     }
   }
-  //Serial.printf("E loop called at %u \n",millis());
 
   uavs_mutex.unlock();
 
