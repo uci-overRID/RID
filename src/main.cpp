@@ -253,10 +253,10 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
             // Fill uavs[UAV_i].m_mavlink_open_drone_id_location_t_tosend with ready to send mavlink packet
             m2o_basicId2Mavlink(&uavs[UAV_i].m_mavlink_open_drone_id_basic_id_t_tosend,&uavs[UAV_i].m_ODID_BasicID_data); 
             // send it on to mavlink
-            mavlink1.send_uav_basic(uavs[UAV_i].m_mavlink_open_drone_id_basic_id_t_tosend );
-            if(m_send_mavlink_to_console){
-              mavlink2.send_uav_basic(uavs[UAV_i].m_mavlink_open_drone_id_basic_id_t_tosend );
-            };
+            //mavlink1.send_uav_basic(uavs[UAV_i].m_mavlink_open_drone_id_basic_id_t_tosend );
+            //if(m_send_mavlink_to_console){
+              //mavlink2.send_uav_basic(uavs[UAV_i].m_mavlink_open_drone_id_basic_id_t_tosend );
+            //};
 
             // let's log to console uavs[UAV_i].m_ODID_BasicID_data :
             if(m_log_each_packet_to_console){
@@ -542,8 +542,8 @@ void loop() {
     if (uavs[i].flag) { // process if flagged, i.e. send uav data...
       //print_json(i,secs,(id_data *) &uavs[i]);
       id_data UAV = uavs[i];
-       mavlink1.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
-       mavlink2.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
+       //mavlink1.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
+       //mavlink2.mav_printf(MAV_SEVERITY_INFO, "uav found %f,%f", uavs[i].lat_d,uavs[i].long_d);
 
       uavs[i].flag = 0;
       // Serial.println("UnSetting flag 1");
